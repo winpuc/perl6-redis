@@ -102,7 +102,7 @@ method new(Str $server?, Str :$encoding?, Bool :$decode_response?) {
     if $decode_response.defined {
         %config<decode_response> = $decode_response;
     }
-    my $obj = self.bless(*, |%config);
+    my $obj = self.bless(|%config);
     $obj.reconnect;
     return $obj;
 }
@@ -187,18 +187,23 @@ method !read_response returns Any {
 }
 
 method !decode_response($response) {
-    if $response.WHAT === Buf[uint8] {
-        return $response.decode(self.encoding);
-    } elsif $response.WHAT === Array {
-        return $response.map( { self!decode_response($_) } ).Array;
-    } elsif $response.WHAT === Hash {
-        my %h = Hash.new;
-        for $response.pairs {
-            %h{.key} = self!decode_response(.value);
+    given $response {
+        when Buf[uint8] {
+            return $response.decode(self.encoding);
         }
-        return %h;
-    } else {
-        return $response;
+        when Array {
+            return $response.map( { self!decode_response($_) } ).Array;
+        }
+        when Hash {
+            my %h = Hash.new;
+            for $response.pairs {
+                %h{.key} = self!decode_response(.value);
+            }
+            return %h;
+        }
+        default {
+            return $response;
+        }
     }
 }
 
@@ -591,7 +596,7 @@ method rpop(Str $key) returns Any {
     return self.exec_command("RPOP", $key);
 }
 
-method rpoplpush(Str $source, Str $destination) returns Str {
+method rpoplpush(Str $source, Str $destination) returns Any {
     return self.exec_command("RPOPLPUSH", $source, $destination);
 }
 
